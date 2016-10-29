@@ -54,7 +54,7 @@ GEM
     crack (0.4.3)
       safe_yaml (~> 1.0.0)
     diff-lcs (1.2.5)
-    docker-api (1.29.0)
+    docker-api (1.32.1)
       excon (>= 0.38.0)
       json
     erubis (2.7.0)

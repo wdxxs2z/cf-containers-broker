@@ -33,7 +33,7 @@ class DockerManager < ContainerManager
     @user = attrs.fetch('user', '') || ''
     @memory = attrs.fetch('memory', 0) || 0
     @memory_swap = attrs.fetch('memory_swap', 0) || 0
-    @cpu_shares = attrs.fetch('cpu_shares', nil)
+    @cpu_shares = attrs.fetch('cpu_shares', 0) || 0
     @privileged = attrs.fetch('privileged', false)
     @cap_adds = attrs.fetch('cap_adds', []) || []
     @cap_drops = attrs.fetch('cap_drops', []) || []
@@ -305,7 +305,9 @@ class DockerManager < ContainerManager
         'Memory' => convert_memory(memory),
         'MemorySwap' => convert_memory(memory_swap),
         'CpuShares' => cpu_shares,
-        'PublishAllPorts' => false,
+        'PublishAllPorts' => true,
+        'NetworkMode' => 'bridge',
+        'RestartPolicy' => restart_policy,
         'Privileged' => privileged,
       },
     }
@@ -396,23 +398,6 @@ class DockerManager < ContainerManager
   end
 
   def start_options(guid)
-    {
-      'Links' => [],
-      'LxcConf' => {},
-      'Memory' => convert_memory(memory),
-      'MemorySwap' => convert_memory(memory_swap),
-      'CpuShares' => cpu_shares,
-      'PortBindings' => port_bindings(guid),
-      'PublishAllPorts' => false,
-      'Privileged' => privileged,
-      'ReadonlyRootfs' => false,
-      'VolumesFrom' => [],
-      'CapAdd' => cap_adds,
-      'CapDrop' => cap_drops,
-      'RestartPolicy' => restart_policy,
-      'Devices' => [],
-      'Ulimits' => [],
-    }
   end
 
   def volume_bindings(guid)
