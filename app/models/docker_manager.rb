@@ -435,7 +435,7 @@ class DockerManager < ContainerManager
         FileUtils.mkdir_p(directory)
         FileUtils.chmod_R(0777, directory)
         remote_mount_path = remote_mountpoint + '/' + container_name(guid) + '/' + vol
-        Rails.logger.info("+-> Create volume path: #{remote_mount_path}")
+        #Rails.logger.info("+-> Create volume path: #{remote_mount_path}")
         #volume_create_opts = volume_options(remote_mount_path ,parameters)
         #Rails.logger.info("+-> Create volume options: #{volume_create_opts.inspect}")
         #Docker::Volume.create(remote_mount_path,volume_create_opts)
@@ -461,18 +461,6 @@ class DockerManager < ContainerManager
   def destroy_volumes(guid)
     return [] if persistent_volumes.nil? || persistent_volumes.empty?
     
-    unless volume_driver.nil? || volume_driver.empty?
-      persistent_volumes.each do |vol|
-        Rails.logger.info("+-> start remove volume object: #{guid}")
-        remote_mount_path = remote_mountpoint + '/' + container_name(guid) + '/' + vol
-        Rails.logger.info("+-> delete volume object: #{remote_mount_path}")
-        prarmaters = {
-          'Name' => remote_mount_path,
-        }
-        Docker::Volume.remove(prarmaters)
-      end
-    end
-
     directory = File.join(host_directory, container_name(guid))
     FileUtils.remove_entry_secure(directory, true)  
   end
