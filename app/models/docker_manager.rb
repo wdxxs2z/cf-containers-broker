@@ -12,7 +12,7 @@ class DockerManager < ContainerManager
 
   attr_reader :host_port_allocator, :plan_id, :image, :tag, :command, :entrypoint, :restart, :workdir,
               :environment, :expose_ports, :persistent_volumes, :user, :memory, :memory_swap,
-              :cpu_shares, :privileged, :cap_adds, :cap_drops
+              :cpu_shares, :privileged, :cap_adds, :cap_drops, :volume_driver, :driver_opts, :driver_labels
 
   def initialize(attrs)
     super
@@ -37,6 +37,9 @@ class DockerManager < ContainerManager
     @privileged = attrs.fetch('privileged', false)
     @cap_adds = attrs.fetch('cap_adds', []) || []
     @cap_drops = attrs.fetch('cap_drops', []) || []
+    @volume_driver = attrs.fetch('volume_driver', '') || ''
+    @driver_opts = attrs.fetch('driver_opts', {}) || {}
+    @driver_labels = attrs.fetch('driver_labels', {}) || {}
   end
 
   def find(guid)
@@ -301,7 +304,7 @@ class DockerManager < ContainerManager
       'NetworkDisabled' => false,
       'ExposedPorts' => {},
       'HostConfig' => {
-        'Binds' => volume_bindings(guid),
+        'Binds' => create_volume(guid, parameters),
         'Memory' => convert_memory(memory),
         'MemorySwap' => convert_memory(memory_swap),
         'CpuShares' => cpu_shares,
@@ -309,6 +312,7 @@ class DockerManager < ContainerManager
         'NetworkMode' => 'bridge',
         'RestartPolicy' => restart_policy,
         'Privileged' => privileged,
+        'VolumeDriver' => volume_driver,
       },
     }
   end
@@ -397,8 +401,10 @@ class DockerManager < ContainerManager
     end
   end
 
+# Docker Client 1.12 not support start container with request body.
   def start_options(guid)
   end
+
 
   def volume_bindings(guid)
     return [] if persistent_volumes.nil? || persistent_volumes.empty?
@@ -413,11 +419,62 @@ class DockerManager < ContainerManager
     volumes
   end
 
+  def create_volume(guid, parameters = {})
+    return [] if persistent_volumes.nil? || persistent_volumes.empty?
+    
+    volumes = []
+    persistent_volumes.each do |vol|
+      if volume_driver.nil? || volume_driver.empty?
+        directory = File.join(host_directory, container_name(guid), vol)
+        FileUtils.mkdir_p(directory)
+        FileUtils.chmod_R(0777, directory)
+        volumes << "#{directory}:#{vol}"
+      else
+        # remote_mountpoint like 10.10.130.146:/shared/cf-container-persistent
+        directory = File.join(host_directory, container_name(guid), vol)
+        FileUtils.mkdir_p(directory)
+        FileUtils.chmod_R(0777, directory)
+        remote_mount_path = remote_mountpoint + '/' + container_name(guid) + '/' + vol
+        Rails.logger.info("+-> Create volume path: #{remote_mount_path}")
+        #volume_create_opts = volume_options(remote_mount_path ,parameters)
+        #Rails.logger.info("+-> Create volume options: #{volume_create_opts.inspect}")
+        #Docker::Volume.create(remote_mount_path,volume_create_opts)
+        volumes << "#{remote_mount_path}:#{vol}"
+      end
+    end
+    volumes
+  end
+
+  def volume_options(remote_mount_path, parameters = {})
+    {
+      'Name' => remote_mount_path,
+      'Driver' => volume_driver,
+      'DriverOpts' => driver_opts,
+      'Labels' => driver_labels,
+    }
+  end
+
+  def remote_mountpoint
+    Settings.remote_mountpoint
+  end
+
   def destroy_volumes(guid)
     return [] if persistent_volumes.nil? || persistent_volumes.empty?
+    
+    unless volume_driver.nil? || volume_driver.empty?
+      persistent_volumes.each do |vol|
+        Rails.logger.info("+-> start remove volume object: #{guid}")
+        remote_mount_path = remote_mountpoint + '/' + container_name(guid) + '/' + vol
+        Rails.logger.info("+-> delete volume object: #{remote_mount_path}")
+        prarmaters = {
+          'Name' => remote_mount_path,
+        }
+        Docker::Volume.remove(prarmaters)
+      end
+    end
 
     directory = File.join(host_directory, container_name(guid))
-    FileUtils.remove_entry_secure(directory, true)
+    FileUtils.remove_entry_secure(directory, true)  
   end
 
   def host_directory
@@ -470,3 +527,4 @@ class DockerManager < ContainerManager
     Settings.external_ip
   end
 end
+
