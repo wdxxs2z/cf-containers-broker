@@ -308,13 +308,19 @@ class DockerManager < ContainerManager
         'Memory' => convert_memory(memory),
         'MemorySwap' => convert_memory(memory_swap),
         'CpuShares' => cpu_shares,
-        'PublishAllPorts' => true,
+        'PortBindings' => port_bindings(guid),
+        'PublishAllPorts' => publish_all_ports,
         'NetworkMode' => 'bridge',
         'RestartPolicy' => restart_policy,
         'Privileged' => privileged,
         'VolumeDriver' => volume_driver,
       },
     }
+  end
+
+  def publish_all_ports
+    return true if expose_ports.nil? || expose_ports.empty?
+    false
   end
 
   def convert_memory(memory)
