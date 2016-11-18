@@ -441,24 +441,35 @@ class DockerManager < ContainerManager
         FileUtils.mkdir_p(directory)
         FileUtils.chmod_R(0777, directory)
         remote_mount_path = remote_mountpoint + '/' + container_name(guid) + '/' + vol
-        #Rails.logger.info("+-> Create volume path: #{remote_mount_path}")
-        #volume_create_opts = volume_options(remote_mount_path ,parameters)
-        #Rails.logger.info("+-> Create volume options: #{volume_create_opts.inspect}")
-        #Docker::Volume.create(remote_mount_path,volume_create_opts)
         volumes << "#{remote_mount_path}:#{vol}"
+     
+        #volume_create_opts = volume_options(guid, vol, parameters)
+        #Rails.logger.info("+-> Create volume options: #{volume_create_opts.inspect}")
+        #Docker::Volume.create(guid,volume_create_opts)
+        #volumes << "#{guid}:#{vol}"
       end
     end
     volumes
   end
 
-  def volume_options(remote_mount_path, parameters = {})
-    {
-      'Name' => remote_mount_path,
-      'Driver' => volume_driver,
-      'DriverOpts' => driver_opts,
-      'Labels' => driver_labels,
-    }
-  end
+  #def volume_options(guid, vol, parameters = {})
+  #  {
+  #    'Driver' => volume_driver,
+  #    'DriverOpts' => define_driver_opts(guid, vol, parameters),
+  #    'Labels' => driver_labels,
+  #  }
+  #end
+
+  #def define_driver_opts(guid, vol, parameters = {})
+  # {
+  #   'share' => Settings.driver_address + ':' + Settings.driver_remotepoint + container_name(guid) + vol
+  # }.merge(driver_opts)
+  #end
+
+  #def volume_remove(guid)
+  #  volume = Docker::Volume.get(guid)
+  #  volume.remove
+  #end
 
   def remote_mountpoint
     Settings.remote_mountpoint
@@ -469,6 +480,15 @@ class DockerManager < ContainerManager
     
     directory = File.join(host_directory, container_name(guid))
     FileUtils.remove_entry_secure(directory, true)  
+
+    unless volume_driver.nil? || volume_driver.empty?
+      persistent_volumes.each do |vol|
+        remote_mount_path = remote_mountpoint + '/' + container_name(guid) + vol
+        Rails.logger.info("+-> Umount volume: #{remote_mount_path}")
+        volume = Docker::Volume.get(remote_mount_path)
+        volume.remove
+      end
+    end
   end
 
   def host_directory
