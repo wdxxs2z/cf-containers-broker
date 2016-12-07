@@ -430,16 +430,13 @@ class DockerManager < ContainerManager
     
     volumes = []
     persistent_volumes.each do |vol|
+      directory = File.join(host_directory, container_name(guid), vol)
+      FileUtils.mkdir_p(directory)
+      FileUtils.chmod_R(0777, directory)
       if volume_driver.nil? || volume_driver.empty?
-        directory = File.join(host_directory, container_name(guid), vol)
-        FileUtils.mkdir_p(directory)
-        FileUtils.chmod_R(0777, directory)
         volumes << "#{directory}:#{vol}"
       else
         # remote_mountpoint like 10.10.130.146:/shared/cf-container-persistent
-        directory = File.join(host_directory, container_name(guid), vol)
-        FileUtils.mkdir_p(directory)
-        FileUtils.chmod_R(0777, directory)
         remote_mount_path = remote_mountpoint + '/' + container_name(guid) + '/' + vol
         volumes << "#{remote_mount_path}:#{vol}"
      
